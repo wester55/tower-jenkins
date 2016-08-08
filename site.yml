@@ -2,9 +2,9 @@
 # This playbook deploys the whole application stack in this site.  
 
 - name: Setup Jenkins master
-  hosts: fedora-jenkins
+  hosts: all
   remote_user: root
-  serial: 1
+  serial: 5
 
   roles:
     - java
