@@ -6,6 +6,8 @@
   remote_user: root
   serial: 5
 
-  roles:
-    - java
-    - jenkins
+- debug: var=hostvars[inventory_hostname] verbosity=1
+
+#  roles:
+#    - java
+#    - jenkins
