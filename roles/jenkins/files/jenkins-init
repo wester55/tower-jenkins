@@ -1,0 +1,134 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          jenkins
+# Required-Start:    $local_fs $remote_fs $network $time $named
+# Should-Start: $time sendmail
+# Required-Stop:     $local_fs $remote_fs $network $time $named
+# Should-Stop: $time sendmail
+# Default-Start:     3 5
+# Default-Stop:      0 1 2 6
+# Short-Description: Jenkins Continuous Integration Server
+# Description:       Jenkins Continuous Integration Server
+### END INIT INFO
+
+# Check for missing binaries (stale symlinks should not happen)
+JENKINS_WAR="/usr/lib/jenkins/jenkins.war"
+test -r "$JENKINS_WAR" || { echo "$JENKINS_WAR not installed"; 
+	if [ "$1" = "stop" ]; then exit 0;
+	else exit 5; fi; }
+
+# Check for existence of needed config file and read it
+JENKINS_CONFIG=/etc/sysconfig/jenkins
+test -e "$JENKINS_CONFIG" || { echo "$JENKINS_CONFIG not existing";
+	if [ "$1" = "stop" ]; then exit 0;
+	else exit 6; fi; }
+test -r "$JENKINS_CONFIG" || { echo "$JENKINS_CONFIG not readable. Perhaps you forgot 'sudo'?";
+	if [ "$1" = "stop" ]; then exit 0;
+	else exit 6; fi; }
+
+JENKINS_PID_FILE="/var/run/jenkins.pid"
+
+# Read config	
+[ -f "$JENKINS_CONFIG" ] && . "$JENKINS_CONFIG"
+
+JENKINS_JAVA_OPTIONS="$JENKINS_JAVA_OPTIONS -Djenkins.install.runSetupWizard=false"
+
+# Set up environment accordingly to the configuration settings
+[ -n "$JENKINS_HOME" ] || { echo "JENKINS_HOME not configured in $JENKINS_CONFIG";
+	if [ "$1" = "stop" ]; then exit 0;
+	else exit 6; fi; }
+[ -d "$JENKINS_HOME" ] || { echo "JENKINS_HOME directory does not exist: $JENKINS_HOME";
+	if [ "$1" = "stop" ]; then exit 0;
+	else exit 1; fi; }
+
+candidates="
+/etc/alternatives/java
+/usr/lib/jvm/java-1.6.0/bin/java
+/usr/lib/jvm/jre-1.6.0/bin/java
+/usr/lib/jvm/java-1.7.0/bin/java
+/usr/lib/jvm/jre-1.7.0/bin/java
+/usr/lib/jvm/java-1.8.0/bin/java
+/usr/lib/jvm/jre-1.8.0/bin/java
+/usr/bin/java
+"
+for candidate in $candidates
+do
+  [ -x "$JENKINS_JAVA_CMD" ] && break
+  JENKINS_JAVA_CMD="$candidate"
+done
+
+JAVA_CMD="$JENKINS_JAVA_CMD $JENKINS_JAVA_OPTIONS -DJENKINS_HOME=$JENKINS_HOME -jar $JENKINS_WAR"
+PARAMS="--logfile=/var/log/jenkins/jenkins.log --webroot=/var/cache/jenkins/war --daemon"
+[ -n "$JENKINS_PORT" ] && PARAMS="$PARAMS --httpPort=$JENKINS_PORT"
+[ -n "$JENKINS_LISTEN_ADDRESS" ] && PARAMS="$PARAMS --httpListenAddress=$JENKINS_LISTEN_ADDRESS"
+[ -n "$JENKINS_HTTPS_PORT" ] && PARAMS="$PARAMS --httpsPort=$JENKINS_HTTPS_PORT"
+[ -n "$JENKINS_HTTPS_KEYSTORE" ] && PARAMS="$PARAMS --httpsKeyStore=$JENKINS_HTTPS_KEYSTORE"
+[ -n "$JENKINS_HTTPS_KEYSTORE_PASSWORD" ] && PARAMS="$PARAMS --httpsKeyStorePassword='$JENKINS_HTTPS_KEYSTORE_PASSWORD'"
+[ -n "$JENKINS_HTTPS_LISTEN_ADDRESS" ] && PARAMS="$PARAMS --httpsListenAddress=$JENKINS_HTTPS_LISTEN_ADDRESS"
+[ -n "$JENKINS_DEBUG_LEVEL" ] && PARAMS="$PARAMS --debug=$JENKINS_DEBUG_LEVEL"
+[ -n "$JENKINS_HANDLER_STARTUP" ] && PARAMS="$PARAMS --handlerCountStartup=$JENKINS_HANDLER_STARTUP"
+[ -n "$JENKINS_HANDLER_MAX" ] && PARAMS="$PARAMS --handlerCountMax=$JENKINS_HANDLER_MAX"
+[ -n "$JENKINS_HANDLER_IDLE" ] && PARAMS="$PARAMS --handlerCountMaxIdle=$JENKINS_HANDLER_IDLE"
+[ -n "$JENKINS_ARGS" ] && PARAMS="$PARAMS $JENKINS_ARGS"
+
+if [ "$JENKINS_ENABLE_ACCESS_LOG" = "yes" ]; then
+    PARAMS="$PARAMS --accessLoggerClassName=winstone.accesslog.SimpleAccessLogger --simpleAccessLogger.format=combined --simpleAccessLogger.file=/var/log/jenkins/access_log"
+fi
+
+RETVAL=0
+
+case "$1" in
+    start)
+	echo "Starting Jenkins ..."
+	command="su $JENKINS_USER -c \"nohup $JAVA_CMD $PARAMS >/dev/null 2>&1\"" 
+	result=`eval $command 2>&1`
+	echo "Waiting for Jenkins to fully initialize ..." && sleep 5
+	pidof /etc/alternatives/java > $JENKINS_PID_FILE
+	running=`cat $JENKINS_PID_FILE | ps auxw | grep jenkins | grep -v grep | grep - | wc -l`
+	if [ $running = 1 ]; then
+            echo "Successfully started Jenkins"
+            echo "Jenkins pid is "$(cat $JENKINS_PID_FILE)
+        else
+            echo -e "Failed to start Jenkins with command:\n$command\nwith result:\n$result" && exit 1
+        fi
+	echo
+	;;
+    stop)
+	echo "Sending stop signal to Jenkins"
+	kill -15 $(cat $JENKINS_PID_FILE) >/dev/null 2>&1
+	RETVAL=$?
+	if [ $RETVAL = 0 ]; then
+	    echo "Waiting for Jenkins to stop ..." && sleep 5
+	    running=`ps auxw | grep jenkins | grep -v grep | wc -l`
+	    if [ $running = 1 ]; then
+                echo "Unable to stop Jenkins gracefully, killing Jenkins ..."
+		killall -u jenkins && cat /dev/null > $JENKINS_PID_FILE
+                echo "Killed" && exit 0
+            else
+		cat /dev/null > $JENKINS_PID_FILE
+                echo "Successfully stopped Jenkins" && exit 0
+            fi
+        fi
+	echo
+	;;
+    restart)
+	$0 stop
+	$0 start
+	;;
+    reload)
+    	$0 restart
+	;;
+    status)
+        pidof /etc/alternatives/java > $JENKINS_PID_FILE
+	running=`cat $JENKINS_PID_FILE | ps auxw | grep jenkins | grep -v grep | grep - | wc -l`
+	if [ $running = 1 ]; then
+            echo "Jenkins pid is "$(cat $JENKINS_PID_FILE)
+        else
+            echo "Jenkins is not running" && exit 1
+        fi
+	;;
+    *)
+	echo "Usage: $0 {start|stop|status|restart|reload}"
+	exit 1
+	;;
+esac

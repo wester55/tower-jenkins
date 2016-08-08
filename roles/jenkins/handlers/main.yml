@@ -1,0 +1,9 @@
+---
+- name: restart jenkins
+  command: "{{ jenkins_init_script }} restart"
+
+- name: start jenkins
+  command: "{{ jenkins_init_script }} start"
+
+- name: stop jenkins
+  command: "{{ jenkins_init_script }} stop"

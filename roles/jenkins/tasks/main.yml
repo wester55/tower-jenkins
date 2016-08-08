@@ -1,0 +1,27 @@
+---
+# Setup/install tasks.
+- include: setup.yml
+
+- name: Create temp folder
+  file: state=directory path={{ tmp_folder }}
+  changed_when: false
+
+# Configure Jenkins init settings.
+- include: settings.yml
+
+- name: Get jenkins status
+  command: "{{ jenkins_init_script }} status"
+  register: jenkins_status
+  ignore_errors: yes
+  changed_when: false
+
+- name: Start Jenkins if not started
+  command: "{{ jenkins_init_script }} start"
+  when: jenkins_status.rc == 1
+
+# Configure custom Jenkins settings
+- include: custom.yml
+
+- name: Delete temp folder
+  file: state=absent path={{ tmp_folder }}
+  changed_when: false

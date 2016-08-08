@@ -1,0 +1,66 @@
+---
+- name: Ensure dependencies are installed.
+  dnf: pkg=curl state=installed
+
+- name: Ensure Jenkins repo is installed.
+  get_url:
+    url: "{{ jenkins_repo_url }}"
+    dest: /etc/yum.repos.d/jenkins.repo
+
+- name: Add Jenkins repo GPG key.
+  rpm_key:
+    state: present
+    key: "{{ jenkins_repo_key_url }}"
+
+- name: Ensure Jenkins is installed.
+  dnf: name=jenkins state=installed
+  register: jenkins_install_package
+
+- name: Ensure pid file exists and owned by user jenkins
+  file:
+    path: "{{ jenkins_pid_file }}"
+    state: touch
+    owner: jenkins
+    group: jenkins
+  changed_when: False
+
+- name: Set shell to /bin/bash for user jenkins
+  user: name=jenkins shell=/bin/bash
+
+- name: Copy our Jenkins init file.
+  copy:
+    src: jenkins-init
+    dest: "{{ jenkins_init_script }}"
+    owner: root
+    group: root
+    mode: 0755
+  register: init_file
+
+- name: Restart Jenkins
+  command: "{{ jenkins_init_script }} restart" 
+  when: init_file.changed
+
+- name: Wait for Jenkins to start up before proceeding.
+  uri:
+    url: "http://{{ jenkins_hostname }}:{{ jenkins_http_port }}/cli/"
+    return_content: yes
+    method: GET
+    register: result
+    until: result.content.find("Page generated") != -1
+    retries: "{{ jenkins_connection_retries }}"
+    delay: "{{ jenkins_connection_delay }}"
+    changed_when: false
+    status_code: 200,403,503
+
+- name: Get the jenkins-cli jarfile from the Jenkins server.
+  get_url:
+    url: "http://{{ jenkins_hostname }}:{{ jenkins_http_port }}/jnlpJars/jenkins-cli.jar"
+    dest: "{{ jenkins_jar_location }}"
+  register: jarfile_get
+  until: "'OK' in jarfile_get.msg or 'file already exists' in jarfile_get.msg"
+  retries: 5
+  delay: 10
+
+#- debug: var=result verbosity=1
+
+#- fail: msg="debug failure"

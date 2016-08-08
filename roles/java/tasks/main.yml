@@ -1,0 +1,5 @@
+---
+
+- name: Install Java packages
+  dnf: name={{ item }} state=latest
+  with_items: "{{ java_packages }}"

@@ -1,0 +1,49 @@
+import jenkins.*
+import hudson.*
+
+def instance = jenkins.model.Jenkins.getInstance()
+
+def hudsonRealm = new hudson.security.HudsonPrivateSecurityRealm(false)
+instance.setSecurityRealm(hudsonRealm)
+
+def strategy = new hudson.security.GlobalMatrixAuthorizationStrategy()
+
+strategy.add(jenkins.model.Jenkins.ADMINISTER, '{{ jenkins_admin_username }}')
+strategy.add(jenkins.model.Jenkins.READ, '{{ jenkins_admin_username }}')
+strategy.add(jenkins.model.Jenkins.RUN_SCRIPTS, '{{ jenkins_admin_username }}')
+strategy.add(jenkins.model.Jenkins.MasterComputer.CONFIGURE, '{{ jenkins_admin_username }}')
+strategy.add(jenkins.model.Jenkins.MasterComputer.BUILD, '{{ jenkins_admin_username }}')
+strategy.add(jenkins.model.Jenkins.MasterComputer.CONNECT, '{{ jenkins_admin_username }}')
+strategy.add(jenkins.model.Jenkins.MasterComputer.CREATE, '{{ jenkins_admin_username }}')
+strategy.add(jenkins.model.Jenkins.MasterComputer.DELETE, '{{ jenkins_admin_username }}')
+strategy.add(jenkins.model.Jenkins.MasterComputer.DISCONNECT, '{{ jenkins_admin_username }}')
+strategy.add(hudson.PluginManager.CONFIGURE_UPDATECENTER, '{{ jenkins_admin_username }}')
+strategy.add(hudson.PluginManager.UPLOAD_PLUGINS, '{{ jenkins_admin_username }}')
+strategy.add(hudson.model.Item.BUILD, '{{ jenkins_admin_username }}')
+strategy.add(hudson.model.Item.CANCEL, '{{ jenkins_admin_username }}')
+strategy.add(hudson.model.Item.CONFIGURE, '{{ jenkins_admin_username }}')
+strategy.add(hudson.model.Item.CREATE, '{{ jenkins_admin_username }}')
+strategy.add(hudson.model.Item.DELETE, '{{ jenkins_admin_username }}')
+strategy.add(hudson.model.Item.DISCOVER, '{{ jenkins_admin_username }}')
+strategy.add(hudson.model.Item.EXTENDED_READ, '{{ jenkins_admin_username }}')
+strategy.add(hudson.model.Item.READ, '{{ jenkins_admin_username }}')
+strategy.add(hudson.model.Item.WIPEOUT, '{{ jenkins_admin_username }}')
+strategy.add(hudson.model.Item.WORKSPACE, '{{ jenkins_admin_username }}')
+strategy.add(hudson.model.View.CONFIGURE, '{{ jenkins_admin_username }}')
+strategy.add(hudson.model.View.CREATE, '{{ jenkins_admin_username }}')
+strategy.add(hudson.model.View.DELETE, '{{ jenkins_admin_username }}')
+strategy.add(hudson.model.View.READ, '{{ jenkins_admin_username }}')
+strategy.add(hudson.model.Run.ARTIFACTS, '{{ jenkins_admin_username }}')
+strategy.add(hudson.model.Run.DELETE, '{{ jenkins_admin_username }}')
+strategy.add(hudson.model.Run.UPDATE, '{{ jenkins_admin_username }}')
+
+
+{% for user in vars['jenkins_users'] %}
+{% for perm in user.permissions %}
+strategy.add({{ perm }},'{{ user.username }}')
+{% endfor %}
+{% endfor %}
+
+instance.setAuthorizationStrategy(strategy)
+
+instance.save()

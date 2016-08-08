@@ -1,0 +1,29 @@
+---
+
+- name: Check installed plugins
+  command: java -jar {{ jenkins_jar_location }} -noKeyAuth -s http://{{ ansible_host }}:{{ jenkins_http_port }} list-plugins --username {{ jenkins_admin_username }} --password {{ jenkins_admin_password }}
+  register: jenkins_plugins
+  changed_when: False
+
+#- debug: var=jenkins_plugins verbosity=1
+ 
+- name: Install Matrix Authorization plugin
+  command: java -jar {{ jenkins_jar_location }} -noKeyAuth -s http://{{ ansible_host }}:{{ jenkins_http_port }} install-plugin matrix-auth -deploy -restart --username {{ jenkins_admin_username }} --password {{ jenkins_admin_password }}
+  when: jenkins_plugins.stdout.find('\nmatrix-auth') == -1 
+  register: plugin_install_result
+  failed_when: "plugin_install_result.rc != 0 and ('no update center data is retrieved yet' not in plugin_install_result.stderr)"
+
+- wait_for: delay=10
+  when: "plugin_install_result is defined and plugin_install_result.rc != 0"
+
+- name: Install Matrix Authorization plugin - attempt 2
+  when: "plugin_install_result is defined and plugin_install_result.rc != 0"
+  command: java -jar {{ jenkins_jar_location }} -noKeyAuth -s http://{{ ansible_host }}:{{ jenkins_http_port }} install-plugin matrix-auth -deploy -restart --username {{ jenkins_admin_username }} --password {{ jenkins_admin_password }}
+
+- name: Populate Matrix security Groovy script in temp folder
+  template: src=matrix-authorization.groovy.j2 dest={{ tmp_folder }}/matrix-authorization.groovy
+  changed_when: False
+
+- name: Set Matrix Authorization strategy
+  command: java -jar {{ jenkins_jar_location }} -noKeyAuth -s http://{{ ansible_host }}:{{ jenkins_http_port }} groovy {{ tmp_folder }}/matrix-authorization.groovy --username {{ jenkins_admin_username }} --password {{ jenkins_admin_password }}
+  changed_when: False

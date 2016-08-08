@@ -1,0 +1,21 @@
+---
+jenkins_connection_delay: 5
+jenkins_connection_retries: 60
+jenkins_hostname: 127.0.0.1
+jenkins_http_port: 8080
+jenkins_jar_location: /opt/jenkins-cli.jar
+
+jenkins_admin_username: admin
+jenkins_admin_password: admin
+jenkins_admin_permissions: ['','','']
+
+jenkins_repo_url: http://pkg.jenkins-ci.org/redhat/jenkins.repo
+jenkins_repo_key_url: http://pkg.jenkins-ci.org/redhat/jenkins-ci.org.key
+jenkins_pid_file: /var/run/jenkins.pid
+jenkins_init_script: /etc/init.d/jenkins
+
+jenkins_users:
+  - {username: "john", password: "john", permissions: ['jenkins.model.Jenkins.READ','hudson.PluginManager.UPLOAD_PLUGINS','hudson.model.Item.BUILD','hudson.model.Item.CANCEL','hudson.model.Item.CONFIGURE','hudson.model.Item.CREATE','hudson.model.Item.DELETE','hudson.model.Item.DISCOVER','hudson.model.Item.EXTENDED_READ','hudson.model.Item.READ','hudson.model.Item.WIPEOUT','hudson.model.Item.WORKSPACE','hudson.model.Run.DELETE']}
+  - {username: "albert", password: "albert", permissions: ['jenkins.model.Jenkins.READ']}
+
+tmp_folder: /tmp/jenkins_groovy_scripts
