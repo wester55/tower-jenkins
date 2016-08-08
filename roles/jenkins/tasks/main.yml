@@ -1,4 +1,7 @@
 ---
+
+#- debug: var=hostvars[inventory_hostname] verbosity=1
+
 # Setup/install tasks.
 - include: setup.yml
 
