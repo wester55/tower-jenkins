@@ -15,6 +15,22 @@
 - name: Create non-admin users - run groovy script
   command: java -jar {{ jenkins_jar_location }} -noKeyAuth -s http://{{ ansible_host }}:{{ jenkins_http_port }} groovy {{ tmp_folder }}/non-admin-users.groovy --username {{ jenkins_admin_username }} --password {{ jenkins_admin_password }}
   changed_when: False
+  register: non_admin_stage
+  ignore_errors: yes 
+
+- name: Populate Basic security Groovy script in temp folder
+  template: src=basic-security.groovy.j2 dest={{ tmp_folder }}/basic-security.groovy
+  when: non_admin_stage.rc != 0
+
+- name: Configure Jenkins default admin user
+  command: java -jar {{ jenkins_jar_location }} -noKeyAuth -s http://{{ ansible_host }}:{{ jenkins_http_port }} groovy {{ tmp_folder }}/basic-security.groovy
+  when: non_admin_stage.rc != 0
+
+- name: Create non-admin users - run groovy script
+  command: java -jar {{ jenkins_jar_location }} -noKeyAuth -s http://{{ ansible_host }}:{{ jenkins_http_port }} groovy {{ tmp_folder }}/non-admin-users.groovy --username {{ jenkins_admin_username }} --password {{ jenkins_admin_password }}
+  changed_when: False
+  when: non_admin_stage.rc != 0
+  
 
 #- debug: var=result verbosity=1
 
